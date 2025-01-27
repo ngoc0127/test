@@ -25,13 +25,41 @@ const SenderTable = (props) => {
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
   };
+
+  const isValidEthereumAddress = (address) => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
   const uploadWallet = async (e) => {
-    // setWallets(dummy);
-    const response = await fetch(process.env.PUBLIC_URL + "/wallets.csv");
-    const data = await response.text();
-    const dataArray = data.replace(/\s/g, "").split(",");
-    const resultArr = dataArray.filter((item) => item !== "");
-    setWallets(resultArr);
+    try {
+      const response = await fetch(process.env.PUBLIC_URL + "/wallets.csv");
+      const data = await response.text();
+      const dataArray = data.replace(/\s/g, "").split(",");
+      
+      // Filter out empty strings and validate addresses
+      let validAddresses = dataArray
+        .filter(item => item !== "")
+        .filter(address => {
+          const isValid = isValidEthereumAddress(address);
+          if (!isValid) {
+            console.warn(`Invalid Ethereum address found: ${address}`);
+          }
+          return isValid;
+        });
+
+      // filter out duplicate addresses
+      validAddresses = [...new Set(validAddresses)];
+
+      if (validAddresses.length === 0) {
+        alert("No valid Ethereum addresses found in the CSV file");
+        return;
+      }
+
+      setWallets(validAddresses);
+    } catch (error) {
+      console.error("Error uploading wallet addresses:", error);
+      alert("Error uploading wallet addresses. Please check the file format.");
+    }
   };
 
   return (
@@ -47,13 +75,15 @@ const SenderTable = (props) => {
           {wallets && wallets.length > 0
             ? wallets.map((e, idx) => {
                 return (
-                  <tr>
+                  <tr key={idx}>
                     <td>{idx + 1}</td>
                     <td>{e}</td>
                   </tr>
                 );
               })
-            : "No data"}
+            : <tr key="no-data">
+                <td colSpan="2">No data</td>
+              </tr>}
         </tbody>
       </Table>
 

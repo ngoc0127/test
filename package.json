@@ -11,7 +11,7 @@
     "bootstrap": "^5.3.3",
     "bs58": "^5.0.0",
     "cookie-parser": "^1.4.6",
-    "ethers": "^6.7.0",       
+    "ethers": "^6.11.1",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.6.0",
@@ -34,7 +34,8 @@
     "sequelize": "^6.37.2",
     "session-file-store": "^1.5.0",
     "sqlite3": "^5.1.7",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "@metamask/detect-provider": "^2.0.0"
   },
   "devDependencies": {
     "assert": "^2.1.0",
@@ -72,5 +73,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

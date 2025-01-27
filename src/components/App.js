@@ -10,63 +10,85 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { Spinner } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import { RPC_URL, SECRET_KEY } from "./config";
-
-// Load the sender's wallet from the private key
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const senderWallet = new ethers.Wallet(SECRET_KEY, provider);
+import { TOKEN_ADDRESS } from "./config";
 
 function App() {
   // State variables
   const [isConnected, setIsConnected] = useState(false); // Connection state
-  const [tokenAddress, setTokenAddress] = useState("0xdAC17F958D2ee523a2206206994597C13D831ec7"); // ERC-20 token contract address
+  const [tokenAddress, setTokenAddress] = useState(""); // ERC-20 token contract address
   const [wallets, setWallets] = useState([]); // List of recipient addresses
   const [walletAddress, setWalletAddress] = useState("");
   const [quantity, setQuantity] = useState(0); // Tokens to send per wallet
   const [fee, setFee] = useState(0); // Gas fee per transaction (not actively used for Ethereum)
   const [loading, setLoading] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState(0); // Sender's token balance
+  const [account, setAccount] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
 
   // Fetch token balance of the sender's wallet
   useEffect(() => {
-    if (tokenAddress) {
+    if (tokenAddress && provider && account) {
       getTokenBalance();
     }
-  }, [tokenAddress]);
+  }, [tokenAddress, provider, account]);
 
   const getTokenBalance = async () => {
     try {
+      if (!provider || !account) return;
+      
       const erc20ABI = [
         "function balanceOf(address account) external view returns (uint256)",
-        "function decimals() view returns (uint8)",
+        "function decimals() external view returns (uint8)",
       ];
       const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, provider);
       const decimals = await tokenContract.decimals();
-      const balance = await tokenContract.balanceOf(senderWallet.address);
+      const balance = await tokenContract.balanceOf(account);
       setBalanceAmount(Number(ethers.formatUnits(balance, decimals)));
     } catch (error) {
       console.error("Error fetching token balance:", error);
-      alert("Failed to fetch token balance. Check the token address and try again.");
+      // alert("Failed to fetch token balance. Check the token address and try again.");
     }
   };
+
+  async function connectMetaMask() {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // Request accounts access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const newProvider = new ethers.BrowserProvider(window.ethereum);
+        const newSigner = await newProvider.getSigner();
+        
+        setProvider(newProvider);
+        setSigner(newSigner);
+        setTokenAddress(TOKEN_ADDRESS);
+        setAccount(accounts[0]);
+      } catch (error) {
+        console.error('Error connecting to MetaMask:', error);
+      }
+    } else {
+      console.error('MetaMask is not installed!');
+      alert('Please install MetaMask!');
+    }
+  }
 
   const handleConnect = async () => {
     if (isConnected) {
       const confirmDisconnect = window.confirm("Do you want to disconnect?");
       if (confirmDisconnect) {
+        setAccount(null);
         setIsConnected(false);
       }
     } else {
-      // Placeholder for future MetaMask logic
-      alert("Simulating wallet connection. MetaMask support coming soon.");
+      await connectMetaMask();
       setIsConnected(true);
     }
   };
 
   // Airdrop logic
   const handleAirdrop = async () => {
-    if (!tokenAddress || wallets.length === 0 || quantity <= 0) {
-      alert("Please fill in all parameters correctly!");
+    if (!tokenAddress || wallets.length === 0 || quantity <= 0 || !signer) {
+      alert("Please fill in all parameters and connect wallet!");
       return;
     }
 
@@ -76,7 +98,7 @@ function App() {
         "function transfer(address to, uint256 value) public returns (bool)",
         "function decimals() view returns (uint8)",
       ];
-      const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, senderWallet);
+      const tokenContract = new ethers.Contract(tokenAddress, erc20ABI, signer);
       const decimals = await tokenContract.decimals();
       const amount = ethers.parseUnits(quantity.toString(), decimals);
 
@@ -84,7 +106,7 @@ function App() {
         const recipient = wallets[i];
         console.log(`Transferring ${quantity} tokens to ${recipient}...`);
         const tx = await tokenContract.transfer(recipient, amount);
-        await tx.wait(); // Wait for the transaction to confirm
+        await tx.wait();
         console.log(`Successfully sent to ${recipient}`);
       }
       alert("Airdrop completed successfully!");
@@ -98,6 +120,7 @@ function App() {
   return (
     <div className="App">
       <Nav />
+      {account && <h3>Connected Account: {account}</h3>}
       <div style={{ opacity: loading ? 0.5 : 1 }}>
         {loading && (
           <div className="d-flex justify-content-center align-items-center custom-loading">
