@@ -2,7 +2,7 @@ import Button from "react-bootstrap/Button";
 
 const Airdrop = (props) => {
   const { isConnected, handleAirdrop } = props;
-  console.log("IsConnected------>",isConnected)
+  // console.log("IsConnected------>",isConnected)
 
   return (
     <Button

@@ -17,7 +17,6 @@ function App() {
   const [isConnected, setIsConnected] = useState(false); // Connection state
   const [tokenAddress, setTokenAddress] = useState(""); // ERC-20 token contract address
   const [wallets, setWallets] = useState([]); // List of recipient addresses
-  const [walletAddress, setWalletAddress] = useState("");
   const [quantity, setQuantity] = useState(0); // Tokens to send per wallet
   const [fee, setFee] = useState(0); // Gas fee per transaction (not actively used for Ethereum)
   const [loading, setLoading] = useState(false);
@@ -62,6 +61,7 @@ function App() {
         setProvider(newProvider);
         setSigner(newSigner);
         setTokenAddress(TOKEN_ADDRESS);
+        console.log("accounts", accounts);
         setAccount(accounts[0]);
       } catch (error) {
         console.error('Error connecting to MetaMask:', error);
@@ -72,14 +72,23 @@ function App() {
     }
   }
 
-  const handleConnect = async () => {
-    if (isConnected) {
-      const confirmDisconnect = window.confirm("Do you want to disconnect?");
-      if (confirmDisconnect) {
-        setAccount(null);
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const handleAccountsChanged = (accounts) => {
+      if (accounts[0] !== account) {
         setIsConnected(false);
       }
-    } else {
+      setAccount(accounts[0]);
+    };
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    
+    return () => {
+      window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+    };
+  }, []);
+
+  const handleConnect = async () => {
+    if (!isConnected) {
       await connectMetaMask();
       setIsConnected(true);
     }
@@ -105,6 +114,23 @@ function App() {
       for (let i = 0; i < wallets.length; i++) {
         const recipient = wallets[i];
         console.log(`Transferring ${quantity} tokens to ${recipient}...`);
+
+        // Estimate gas limit
+        console.log("tokenContract", tokenContract);
+        const gasLimit = await tokenContract.transfer.estimateGas(
+          recipient,
+          amount
+        );
+        const feeData = await provider.getFeeData();
+        console.log("feeData", feeData);
+        const gasPrice = feeData.gasPrice;
+
+        let senderBalance = await provider.getBalance(account);
+        if (senderBalance < gasLimit * gasPrice) {
+          alert("Insufficient gas balance to perform airdrop!");
+          throw new Error("Insufficient gas balance to perform airdrop!");
+        }
+
         const tx = await tokenContract.transfer(recipient, amount);
         await tx.wait();
         console.log(`Successfully sent to ${recipient}`);
@@ -112,7 +138,7 @@ function App() {
       alert("Airdrop completed successfully!");
     } catch (error) {
       console.error("Airdrop failed:", error);
-      alert("Airdrop failed! Check the console for more details.");
+      // alert("Airdrop failed! Check the console for more details.");
     }
     setLoading(false);
   };
@@ -120,7 +146,7 @@ function App() {
   return (
     <div className="App">
       <Nav />
-      {account && <h3>Connected Account: {account}</h3>}
+      {account && <h3>Current Account: {account}</h3>}
       <div style={{ opacity: loading ? 0.5 : 1 }}>
         {loading && (
           <div className="d-flex justify-content-center align-items-center custom-loading">
@@ -154,11 +180,11 @@ function App() {
             totalQuantity={wallets?.length ? wallets.length * quantity : 0}
             balanceAmount={balanceAmount}
           />
-          <Fee
+          {/* <Fee
             fee={fee}
             setFee={setFee}
             totalFee={wallets?.length ? wallets.length * fee : 0}
-          />
+          /> */}
         </div>
         <div className="airdrop">
           <Airdrop
